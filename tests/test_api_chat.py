@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from app.db import get_db
 from app.main import app
 from app.models import Chunk, Document, GameSystem
+from app.ollama_client import OllamaError
 
 
 def make_client(db_session):
@@ -64,6 +65,26 @@ def test_chat_with_no_retrieved_chunks_says_so_explicitly(db_session, monkeypatc
 
     assert response.status_code == 200
     assert "couldn't find anything" in response.text
+
+
+def test_chat_streams_error_event_when_embedding_fails(db_session, monkeypatch):
+    system = GameSystem(name="D&D 5e")
+    db_session.add(system)
+    db_session.commit()
+
+    async def fake_retrieve_chunks(db, game_system_id, query, k=8):
+        raise OllamaError("Ollama embeddings request failed: connection refused")
+
+    monkeypatch.setattr("app.routes.chat.retrieve_chunks", fake_retrieve_chunks)
+
+    client = make_client(db_session)
+    response = client.post(f"/systems/{system.id}/chat", json={"question": "What is a fighter?"})
+
+    assert response.status_code == 200
+    events = [line for line in response.text.splitlines() if line.startswith("data: ")]
+    payloads = [json.loads(line.removeprefix("data: ")) for line in events]
+    assert any("error" in p and "Ollama embeddings request failed" in p["error"] for p in payloads)
+    assert "event: done" in response.text
 
 
 def test_chat_for_missing_system_returns_404(db_session):

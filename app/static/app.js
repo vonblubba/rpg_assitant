@@ -76,9 +76,13 @@ async function streamChatResponse(systemId, question) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ question }),
   });
+  const entry = appendChatEntry("Assistant", "");
+  if (!response.ok) {
+    entry.textContent = `[error: ${response.status} ${await response.text()}]`;
+    return;
+  }
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
-  const entry = appendChatEntry("Assistant", "");
   let buffer = "";
   while (true) {
     const { value, done } = await reader.read();

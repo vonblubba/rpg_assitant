@@ -1,3 +1,4 @@
+import asyncio
 import json
 from collections.abc import AsyncIterator
 
@@ -27,13 +28,18 @@ class ChatRequest(BaseModel):
 
 @router.post("")
 async def chat(system_id: int, payload: ChatRequest, db: Session = Depends(get_db)) -> StreamingResponse:
-    system = db.get(GameSystem, system_id)
+    system = await asyncio.to_thread(db.get, GameSystem, system_id)
     if system is None:
         raise HTTPException(status_code=404, detail="Game system not found")
 
-    chunks = await retrieve_chunks(db, system_id, payload.question)
-
     async def event_stream() -> AsyncIterator[str]:
+        try:
+            chunks = await retrieve_chunks(db, system_id, payload.question)
+        except OllamaError as exc:
+            yield f"data: {json.dumps({'error': str(exc)})}\n\n"
+            yield "event: done\ndata: {}\n\n"
+            return
+
         if not chunks:
             message = (
                 "I couldn't find anything about that in the ingested rulebooks "
