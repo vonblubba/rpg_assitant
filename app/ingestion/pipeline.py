@@ -16,10 +16,12 @@ async def ingest_document(document_id: int, file_path: str) -> None:
 
         document.status = "processing"
         # Capture attributes needed after the commit below, since the default
-        # session config (expire_on_commit=True) expires all non-PK attributes
-        # on commit. Re-reading document.game_system_id afterward would trigger
-        # an implicit, synchronous SELECT on the event-loop thread.
+        # session config (expire_on_commit=True) expires ALL mapped attributes
+        # on commit -- including primary keys, not just non-PK columns.
+        # Re-reading document.game_system_id or document.id afterward would
+        # trigger an implicit, synchronous SELECT on the event-loop thread.
         game_system_id = document.game_system_id
+        document_id_val = document.id
         await asyncio.to_thread(db.commit)
 
         try:
@@ -32,7 +34,7 @@ async def ingest_document(document_id: int, file_path: str) -> None:
                 embedding = await embed_text(chunk.content)
                 db.add(
                     Chunk(
-                        document_id=document.id,
+                        document_id=document_id_val,
                         game_system_id=game_system_id,
                         content=chunk.content,
                         page_number=chunk.page_number,
@@ -44,7 +46,7 @@ async def ingest_document(document_id: int, file_path: str) -> None:
         except Exception as exc:
             await asyncio.to_thread(db.rollback)
             await asyncio.to_thread(
-                lambda: db.query(Chunk).filter(Chunk.document_id == document.id).delete()
+                lambda: db.query(Chunk).filter(Chunk.document_id == document_id_val).delete()
             )
             document.status = "failed"
             document.error_message = str(exc)
