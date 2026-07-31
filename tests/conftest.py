@@ -6,6 +6,7 @@ os.environ.setdefault("OLLAMA_BASE_URL", "http://localhost:11434")
 import pytest
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import inch
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Table, TableStyle
 
 from app.db import Base, engine
@@ -54,7 +55,20 @@ def table_pdf_path(tmp_path):
         ["Longsword", "1d8", "3 lb"],
         ["Dagger", "1d4", "1 lb"],
     ]
-    table = Table(data)
-    table.setStyle(TableStyle([("GRID", (0, 0), (-1, -1), 1, colors.black)]))
+    # Sized generously (wide columns, tall rows, large font) so that
+    # unstructured's hi-res table-structure OCR model reliably recognizes
+    # cell text; a tightly-packed default-sized table is prone to OCR
+    # misreads on this synthetic single-table page.
+    table = Table(data, colWidths=[3 * inch, 2.5 * inch, 2.5 * inch], rowHeights=[0.6 * inch] * 3)
+    table.setStyle(
+        TableStyle(
+            [
+                ("GRID", (0, 0), (-1, -1), 1, colors.black),
+                ("FONTSIZE", (0, 0), (-1, -1), 18),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ]
+        )
+    )
     doc.build([table])
     return str(path)

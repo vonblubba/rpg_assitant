@@ -14,4 +14,10 @@ def test_parse_pdf_extracts_table_as_table_category(table_pdf_path):
 
     table_elements = [el for el in elements if el.category == "Table"]
     assert len(table_elements) == 1
-    assert "Longsword" in table_elements[0].text
+    table_text = table_elements[0].text
+    assert "Longsword" in table_text
+    assert "Damage" in table_text
+    assert any(
+        "Longsword" in line and "|" in line
+        for line in table_text.splitlines()
+    )
