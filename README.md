@@ -17,3 +17,11 @@ ingested text.
 FastAPI + Postgres/pgvector + Ollama (`llama3.1:8b` for chat,
 `nomic-embed-text` for embeddings), all containerized. PDF parsing uses
 `unstructured` in hi-res mode for accurate table extraction.
+
+## GPU acceleration
+
+The `ollama` service is configured to use an NVIDIA GPU, which requires
+[`nvidia-container-toolkit`](https://github.com/NVIDIA/nvidia-container-toolkit)
+installed on the host. If you don't have an NVIDIA GPU, remove the `deploy:`
+block from the `ollama` service in `docker-compose.yml` — Ollama will then
+run on CPU.
