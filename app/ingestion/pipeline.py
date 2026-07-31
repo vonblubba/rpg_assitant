@@ -1,3 +1,5 @@
+import asyncio
+
 from app.db import SessionLocal
 from app.ingestion.chunker import chunk_elements
 from app.ingestion.parser import parse_pdf
@@ -8,16 +10,16 @@ from app.ollama_client import embed_text
 async def ingest_document(document_id: int, file_path: str) -> None:
     db = SessionLocal()
     try:
-        document = db.get(Document, document_id)
+        document = await asyncio.to_thread(db.get, Document, document_id)
         if document is None:
             return
 
         document.status = "processing"
-        db.commit()
+        await asyncio.to_thread(db.commit)
 
         try:
-            elements = parse_pdf(file_path)
-            chunks = chunk_elements(elements)
+            elements = await asyncio.to_thread(parse_pdf, file_path)
+            chunks = await asyncio.to_thread(chunk_elements, elements)
             if not chunks:
                 raise ValueError("No content could be extracted from this PDF")
 
@@ -33,12 +35,14 @@ async def ingest_document(document_id: int, file_path: str) -> None:
                     )
                 )
             document.status = "ready"
-            db.commit()
+            await asyncio.to_thread(db.commit)
         except Exception as exc:
-            db.rollback()
-            db.query(Chunk).filter(Chunk.document_id == document.id).delete()
+            await asyncio.to_thread(db.rollback)
+            await asyncio.to_thread(
+                lambda: db.query(Chunk).filter(Chunk.document_id == document.id).delete()
+            )
             document.status = "failed"
             document.error_message = str(exc)
-            db.commit()
+            await asyncio.to_thread(db.commit)
     finally:
         db.close()
