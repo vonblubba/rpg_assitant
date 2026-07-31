@@ -56,13 +56,18 @@ async function refreshDocuments(systemId) {
   const documentsList = document.getElementById("documents-list");
   const response = await fetch(`/systems/${systemId}/documents`);
   const documents = await response.json();
-  documentsList.innerHTML = documents
-    .map(
-      (doc) =>
-        `<li>${doc.filename} — <strong>${doc.status}</strong>` +
-        `${doc.error_message ? ` (${doc.error_message})` : ""}</li>`
-    )
-    .join("");
+  documentsList.innerHTML = "";
+  for (const doc of documents) {
+    const li = document.createElement("li");
+    li.append(`${doc.filename} — `);
+    const strong = document.createElement("strong");
+    strong.textContent = doc.status;
+    li.append(strong);
+    if (doc.error_message) {
+      li.append(` (${doc.error_message})`);
+    }
+    documentsList.appendChild(li);
+  }
 }
 
 async function streamChatResponse(systemId, question) {
