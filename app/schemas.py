@@ -13,3 +13,14 @@ class GameSystemOut(BaseModel):
     id: int
     name: str
     created_at: datetime
+
+
+class DocumentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    game_system_id: int
+    filename: str
+    status: str
+    error_message: str | None
+    uploaded_at: datetime
