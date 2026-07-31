@@ -23,6 +23,23 @@ async def test_embed_text_returns_embedding_vector():
 
 @pytest.mark.asyncio
 @respx.mock
+async def test_embed_text_truncates_overly_long_text_before_sending():
+    settings = get_settings()
+    route = respx.post(f"{settings.ollama_base_url}/api/embeddings").mock(
+        return_value=httpx.Response(200, json={"embedding": [0.1, 0.2, 0.3]})
+    )
+
+    long_text = "A fighter is skilled in combat. " * 1000  # ~33,000 chars
+
+    await embed_text(long_text)
+
+    sent_prompt = json.loads(route.calls.last.request.content)["prompt"]
+    assert len(sent_prompt) < len(long_text)
+    assert sent_prompt == long_text[: len(sent_prompt)]
+
+
+@pytest.mark.asyncio
+@respx.mock
 async def test_embed_text_raises_ollama_error_on_failure():
     settings = get_settings()
     respx.post(f"{settings.ollama_base_url}/api/embeddings").mock(return_value=httpx.Response(500))
