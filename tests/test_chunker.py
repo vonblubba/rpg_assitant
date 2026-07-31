@@ -39,3 +39,25 @@ def test_prose_splits_when_exceeding_max_chars_with_overlap():
     assert len(chunks) >= 2
     assert all(not c.is_table for c in chunks)
     assert chunks[0].content[-20:] in chunks[1].content
+
+
+def test_no_overlap_when_overlap_chars_is_zero():
+    # Regression test for overlap_chars=0 slicing bug
+    # When overlap_chars=0, no content should be duplicated between chunks
+    elements = [
+        ParsedElement(text="A" * 60, category="NarrativeText", page_number=1),
+        ParsedElement(text="B" * 60, category="NarrativeText", page_number=1),
+        ParsedElement(text="C" * 60, category="NarrativeText", page_number=2),
+    ]
+
+    chunks = chunk_elements(elements, max_chars=100, overlap_chars=0)
+
+    assert len(chunks) >= 2
+    assert all(not c.is_table for c in chunks)
+    # Verify no content from chunk[0] appears at the start of chunk[1]
+    # (i.e., chunk[1]'s content should be completely disjoint from chunk[0]'s)
+    for i in range(len(chunks) - 1):
+        chunk0_content = chunks[i].content
+        chunk1_content = chunks[i + 1].content
+        # The end of chunk[i] should not appear in the start of chunk[i+1]
+        assert chunk0_content[-10:] not in chunk1_content

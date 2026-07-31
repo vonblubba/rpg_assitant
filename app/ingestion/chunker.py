@@ -36,7 +36,7 @@ def chunk_elements(
         if buffer_len + len(element.text) > max_chars and buffer_texts:
             previous_content = "\n\n".join(buffer_texts)
             flush()
-            overlap_text = previous_content[-overlap_chars:]
+            overlap_text = previous_content[max(0, len(previous_content) - overlap_chars):]
             buffer_texts.append(overlap_text)
             buffer_page = element.page_number
             buffer_len = len(overlap_text)
