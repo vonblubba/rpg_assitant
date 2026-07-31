@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Chat &mdash; {{ system.name }}</h1>
+<div id="chat-log"></div>
+<form id="chat-form" data-system-id="{{ system.id }}">
+    <input type="text" name="question" placeholder="Ask a rules question..." required autocomplete="off">
+    <button type="submit">Ask</button>
+</form>
+{% endblock %}
