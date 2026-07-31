@@ -15,6 +15,11 @@ async def ingest_document(document_id: int, file_path: str) -> None:
             return
 
         document.status = "processing"
+        # Capture attributes needed after the commit below, since the default
+        # session config (expire_on_commit=True) expires all non-PK attributes
+        # on commit. Re-reading document.game_system_id afterward would trigger
+        # an implicit, synchronous SELECT on the event-loop thread.
+        game_system_id = document.game_system_id
         await asyncio.to_thread(db.commit)
 
         try:
@@ -28,7 +33,7 @@ async def ingest_document(document_id: int, file_path: str) -> None:
                 db.add(
                     Chunk(
                         document_id=document.id,
-                        game_system_id=document.game_system_id,
+                        game_system_id=game_system_id,
                         content=chunk.content,
                         page_number=chunk.page_number,
                         embedding=embedding,
