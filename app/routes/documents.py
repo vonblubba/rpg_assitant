@@ -27,14 +27,25 @@ def upload_document(
     if system is None:
         raise HTTPException(status_code=404, detail="Game system not found")
 
+    sanitized_filename = Path(file.filename).name if file.filename else ""
+    if not sanitized_filename:
+        raise HTTPException(status_code=400, detail="Filename is required")
+
     document = Document(game_system_id=system_id, filename=file.filename, status="pending")
     db.add(document)
     db.commit()
     db.refresh(document)
 
-    dest_path = UPLOAD_DIR / f"{document.id}_{file.filename}"
-    with dest_path.open("wb") as f:
-        shutil.copyfileobj(file.file, f)
+    dest_path = UPLOAD_DIR / f"{document.id}_{sanitized_filename}"
+    try:
+        with dest_path.open("wb") as f:
+            shutil.copyfileobj(file.file, f)
+    except OSError as exc:
+        document.status = "failed"
+        document.error_message = f"Failed to save uploaded file: {exc}"
+        db.commit()
+        db.refresh(document)
+        return document
 
     background_tasks.add_task(ingest_document, document.id, str(dest_path))
 
@@ -56,5 +67,11 @@ def delete_document(system_id: int, document_id: int, db: Session = Depends(get_
     document = db.get(Document, document_id)
     if document is None or document.game_system_id != system_id:
         raise HTTPException(status_code=404, detail="Document not found")
+
+    sanitized_filename = Path(document.filename).name if document.filename else ""
+    if sanitized_filename:
+        dest_path = UPLOAD_DIR / f"{document.id}_{sanitized_filename}"
+        dest_path.unlink(missing_ok=True)
+
     db.delete(document)
     db.commit()
