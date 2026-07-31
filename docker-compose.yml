@@ -1,13 +1,17 @@
 services:
   app:
     build: .
+    entrypoint: ["/app/entrypoint.sh"]
     ports:
       - "8000:8000"
     environment:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/rpg_assistant
       OLLAMA_BASE_URL: http://ollama:11434
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+      ollama-init:
+        condition: service_completed_successfully
     volumes:
       - .:/app
 
@@ -21,6 +25,33 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  ollama-init:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint: ["sh", "-c"]
+    command:
+      - "OLLAMA_HOST=ollama:11434 ollama pull llama3.1:8b && OLLAMA_HOST=ollama:11434 ollama pull nomic-embed-text"
 
 volumes:
   pgdata:
+  ollama_models:
