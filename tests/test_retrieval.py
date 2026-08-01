@@ -1,7 +1,30 @@
 import pytest
 
 from app.models import Chunk, Document, GameSystem
-from app.retrieval import retrieve_chunks
+from app.retrieval import build_search_query, retrieve_chunks
+
+
+def test_build_search_query_combines_recent_turns_with_question():
+    query = build_search_query(
+        "option 1",
+        [
+            "i choose human",
+            "According to the table, since you chose to be human, I will proceed...",
+            "choose freely",
+            "Choose one of the seven core archetypes described on pages 039-051.",
+        ],
+    )
+
+    # Only the last SEARCH_QUERY_CONTEXT_TURNS turns are folded in, plus the question.
+    assert query == (
+        "choose freely "
+        "Choose one of the seven core archetypes described on pages 039-051. "
+        "option 1"
+    )
+
+
+def test_build_search_query_with_no_history_is_just_the_question():
+    assert build_search_query("What is a fighter?", []) == "What is a fighter?"
 
 
 @pytest.mark.asyncio

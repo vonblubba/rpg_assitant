@@ -41,13 +41,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const chatForm = document.getElementById("chat-form");
   if (chatForm) {
+    const chatHistory = [];
     chatForm.addEventListener("submit", async (event) => {
       event.preventDefault();
       const systemId = chatForm.dataset.systemId;
       const question = new FormData(chatForm).get("question");
       appendChatEntry("You", question);
       chatForm.reset();
-      await streamChatResponse(systemId, question);
+      const answer = await streamChatResponse(systemId, question, chatHistory);
+      chatHistory.push({ role: "user", content: question });
+      chatHistory.push({ role: "assistant", content: answer });
     });
   }
 });
@@ -70,16 +73,16 @@ async function refreshDocuments(systemId) {
   }
 }
 
-async function streamChatResponse(systemId, question) {
+async function streamChatResponse(systemId, question, history) {
   const response = await fetch(`/systems/${systemId}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question }),
+    body: JSON.stringify({ question, history }),
   });
   const entry = appendChatEntry("Assistant", "");
   if (!response.ok) {
     entry.textContent = `[error: ${response.status} ${await response.text()}]`;
-    return;
+    return entry.textContent;
   }
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
@@ -97,6 +100,7 @@ async function streamChatResponse(systemId, question) {
       if (payload.error) entry.textContent += `[error: ${payload.error}]`;
     }
   }
+  return entry.textContent;
 }
 
 function appendChatEntry(speaker, text) {

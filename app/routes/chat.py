@@ -1,16 +1,17 @@
 import asyncio
 import json
 from collections.abc import AsyncIterator
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.models import GameSystem
 from app.ollama_client import OllamaError, chat_stream
-from app.retrieval import retrieve_chunks
+from app.retrieval import build_search_query, retrieve_chunks
 
 router = APIRouter(prefix="/systems/{system_id}/chat", tags=["chat"])
 
@@ -21,9 +22,19 @@ SYSTEM_PROMPT = (
     "knowledge.\n\nContext:\n{context}"
 )
 
+# Caps how much prior conversation gets replayed to the LLM each turn, so a
+# long session doesn't grow the prompt without bound.
+MAX_HISTORY_MESSAGES = 10
+
+
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
 
 class ChatRequest(BaseModel):
     question: str
+    history: list[ChatMessage] = Field(default_factory=list)
 
 
 @router.post("")
@@ -33,8 +44,10 @@ async def chat(system_id: int, payload: ChatRequest, db: Session = Depends(get_d
         raise HTTPException(status_code=404, detail="Game system not found")
 
     async def event_stream() -> AsyncIterator[str]:
+        recent_turns = [message.content for message in payload.history]
+        search_query = build_search_query(payload.question, recent_turns)
         try:
-            chunks = await retrieve_chunks(db, system_id, payload.question)
+            chunks = await retrieve_chunks(db, system_id, search_query)
         except OllamaError as exc:
             yield f"data: {json.dumps({'error': str(exc)})}\n\n"
             yield "event: done\ndata: {}\n\n"
@@ -52,6 +65,10 @@ async def chat(system_id: int, payload: ChatRequest, db: Session = Depends(get_d
         context = "\n\n---\n\n".join(chunk.content for chunk in chunks)
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT.format(context=context)},
+            *(
+                {"role": message.role, "content": message.content}
+                for message in payload.history[-MAX_HISTORY_MESSAGES:]
+            ),
             {"role": "user", "content": payload.question},
         ]
         try:

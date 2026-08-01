@@ -6,10 +6,23 @@ from app.models import Chunk
 from app.ollama_client import embed_text
 
 
-# Calibrated against the ingested corpus: on-topic queries scored 0.16-0.31
-# cosine distance against nomic-embed-text, while off-topic and cross-system
-# queries scored 0.35-0.53. 0.33 sits in that gap.
-MAX_RELEVANT_DISTANCE = 0.33
+# Calibrated against the ingested corpus using natural, loosely-phrased
+# questions (not ones echoing the book's own wording): genuinely answerable
+# queries' best match ranged 0.20-0.39 cosine distance against
+# nomic-embed-text, while off-topic queries' best match was never better
+# than 0.46. 0.42 sits in that gap.
+MAX_RELEVANT_DISTANCE = 0.42
+
+
+# How many of the most recent prior turns to fold into the retrieval query.
+# Short follow-ups ("option 1", "choose freely") carry no searchable meaning
+# on their own; combining them with the turns that gave them meaning lets
+# embedding search find the relevant chunk.
+SEARCH_QUERY_CONTEXT_TURNS = 2
+
+
+def build_search_query(question: str, recent_turns: list[str]) -> str:
+    return " ".join([*recent_turns[-SEARCH_QUERY_CONTEXT_TURNS:], question])
 
 
 async def retrieve_chunks(
