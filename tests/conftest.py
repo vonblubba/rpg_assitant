@@ -3,6 +3,23 @@ import os
 os.environ.setdefault("DATABASE_URL", "postgresql+psycopg://postgres:postgres@localhost:5433/rpg_assistant_test")
 os.environ.setdefault("OLLAMA_BASE_URL", "http://localhost:11434")
 
+# The db_session fixture below calls Base.metadata.drop_all() after every test.
+# setdefault() above is a no-op if DATABASE_URL is already set in the environment
+# (e.g. inherited from docker-compose's app service, which points at the real dev
+# database) -- in that case tests would silently drop_all() production data. Refuse
+# to proceed unless the configured database is clearly a test database.
+_database_url = os.environ["DATABASE_URL"]
+_database_name = _database_url.rsplit("/", 1)[-1]
+if "test" not in _database_name.lower():
+    raise RuntimeError(
+        f"Refusing to run tests against DATABASE_URL={_database_url!r}: the database "
+        f"name {_database_name!r} does not look like a test database (no 'test' in "
+        "the name). The db_session fixture destroys all data in this database. If "
+        "you're running tests inside the app container via `docker exec`, the "
+        "container's DATABASE_URL env var is overriding the test default -- run "
+        "tests against a dedicated test database instead."
+    )
+
 import pytest
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
