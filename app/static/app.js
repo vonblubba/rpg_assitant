@@ -41,19 +41,46 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const chatForm = document.getElementById("chat-form");
   if (chatForm) {
-    const chatHistory = [];
+    const systemId = chatForm.dataset.systemId;
+    const historyKey = `chatHistory:${systemId}`;
+    const chatHistory = loadChatHistory(historyKey);
+    for (const message of chatHistory) {
+      appendChatEntry(message.role === "user" ? "You" : "Assistant", message.content);
+    }
+
     chatForm.addEventListener("submit", async (event) => {
       event.preventDefault();
-      const systemId = chatForm.dataset.systemId;
       const question = new FormData(chatForm).get("question");
       appendChatEntry("You", question);
       chatForm.reset();
       const answer = await streamChatResponse(systemId, question, chatHistory);
       chatHistory.push({ role: "user", content: question });
       chatHistory.push({ role: "assistant", content: answer });
+      saveChatHistory(historyKey, chatHistory);
     });
   }
 });
+
+// Bounds how much history localStorage keeps per game system, so a long
+// session doesn't grow storage (or the re-hydrated chat log) without limit.
+const MAX_STORED_MESSAGES = 40;
+
+function loadChatHistory(key) {
+  try {
+    const stored = JSON.parse(localStorage.getItem(key));
+    return Array.isArray(stored) ? stored : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveChatHistory(key, history) {
+  try {
+    localStorage.setItem(key, JSON.stringify(history.slice(-MAX_STORED_MESSAGES)));
+  } catch {
+    // localStorage unavailable or full; conversation just won't persist across reloads.
+  }
+}
 
 async function refreshDocuments(systemId) {
   const documentsList = document.getElementById("documents-list");
