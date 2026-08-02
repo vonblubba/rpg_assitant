@@ -118,10 +118,16 @@ async function streamChatResponse(systemId, question, history) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ question, history }),
   });
-  const entry = appendChatEntry("Assistant", "");
+  const bubble = appendChatEntry("Assistant", "");
+  let accumulated = "";
+  const update = (chunk) => {
+    accumulated += chunk;
+    bubble.innerHTML = renderMarkdown(accumulated);
+  };
+
   if (!response.ok) {
-    entry.textContent = `[error: ${response.status} ${await response.text()}]`;
-    return entry.textContent;
+    update(`[error: ${response.status} ${await response.text()}]`);
+    return accumulated;
   }
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
@@ -135,20 +141,34 @@ async function streamChatResponse(systemId, question, history) {
     for (const line of lines) {
       if (!line.startsWith("data: ")) continue;
       const payload = JSON.parse(line.slice(6));
-      if (payload.content) entry.textContent += payload.content;
-      if (payload.error) entry.textContent += `[error: ${payload.error}]`;
+      if (payload.content) update(payload.content);
+      if (payload.error) update(`[error: ${payload.error}]`);
     }
   }
-  return entry.textContent;
+  return accumulated;
 }
 
 function appendChatEntry(speaker, text) {
   const log = document.getElementById("chat-log");
-  const entry = document.createElement("p");
-  entry.innerHTML = `<strong>${speaker}:</strong> `;
-  const span = document.createElement("span");
-  span.textContent = text;
-  entry.appendChild(span);
-  log.appendChild(entry);
-  return span;
+  const isUser = speaker === "You";
+
+  const wrapper = document.createElement("div");
+  wrapper.className = `chat-message chat-message--${isUser ? "user" : "assistant"}`;
+
+  const label = document.createElement("div");
+  label.className = "chat-message__label";
+  label.textContent = speaker;
+  wrapper.appendChild(label);
+
+  const bubble = document.createElement("div");
+  bubble.className = "chat-message__bubble";
+  if (isUser) {
+    bubble.textContent = text;
+  } else {
+    bubble.innerHTML = renderMarkdown(text);
+  }
+  wrapper.appendChild(bubble);
+
+  log.appendChild(wrapper);
+  return bubble;
 }
