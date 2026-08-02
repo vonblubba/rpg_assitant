@@ -4,11 +4,11 @@
 <p><a href="/systems/{{ system.id }}/chat">Go to chat</a></p>
 
 <h2>Upload sourcebook</h2>
-<form id="upload-form" data-system-id="{{ system.id }}">
+<form id="upload-form" class="upload-form" data-system-id="{{ system.id }}">
     <input type="file" name="file" accept="application/pdf" required>
     <button type="submit">Upload</button>
 </form>
 
 <h2>Documents</h2>
-<ul id="documents-list" data-system-id="{{ system.id }}"></ul>
+<ul id="documents-list" class="card-list" data-system-id="{{ system.id }}"></ul>
 {% endblock %}

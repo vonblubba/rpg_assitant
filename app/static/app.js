@@ -89,13 +89,25 @@ async function refreshDocuments(systemId) {
   documentsList.innerHTML = "";
   for (const doc of documents) {
     const li = document.createElement("li");
-    li.append(`${doc.filename} — `);
-    const strong = document.createElement("strong");
-    strong.textContent = doc.status;
-    li.append(strong);
+    li.className = "doc-card";
+
+    const name = document.createElement("span");
+    name.className = "doc-name";
+    name.textContent = doc.filename;
+    li.appendChild(name);
+
+    const status = document.createElement("span");
+    status.className = `doc-status doc-status--${doc.status}`;
+    status.textContent = doc.status;
+    li.appendChild(status);
+
     if (doc.error_message) {
-      li.append(` (${doc.error_message})`);
+      const error = document.createElement("span");
+      error.className = "doc-error";
+      error.textContent = doc.error_message;
+      li.appendChild(error);
     }
+
     documentsList.appendChild(li);
   }
 }
