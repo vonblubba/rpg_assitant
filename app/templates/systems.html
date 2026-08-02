@@ -5,13 +5,14 @@
     <input type="text" name="name" placeholder="e.g. D&amp;D 5e" required>
     <button type="submit">Create</button>
 </form>
-<ul id="systems-list">
+<ul id="systems-list" class="card-list">
     {% for system in systems %}
-    <li>
-        <a href="/systems/{{ system.id }}">{{ system.name }}</a>
-        &mdash;
-        <a href="/systems/{{ system.id }}/chat">Chat</a>
-        <button class="delete-system" data-system-id="{{ system.id }}">Delete</button>
+    <li class="card">
+        <div class="card-main">
+            <a href="/systems/{{ system.id }}" class="card-title">{{ system.name }}</a>
+            <a href="/systems/{{ system.id }}/chat">Chat</a>
+        </div>
+        <button class="delete-system btn-muted" data-system-id="{{ system.id }}">Delete</button>
     </li>
     {% endfor %}
 </ul>
